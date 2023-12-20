@@ -4,21 +4,39 @@ window.onload = async () => {
 
 const list_sections = document.querySelector("#sections");
 
-const MOCK = true;
+const MOCK = false;
 
 const state = {
   toDownload: [],
   sections: [],
 };
 
+function loadingSpinner() {
+  const element = `
+  <div id="loading" class="spinner-border" role="status">
+    <span class="visually-hidden">Loading...</span>
+  </div>
+  `;
+  return element;
+}
+
 async function loadScript() {
   const tabs = await chrome.tabs.query({
     url: "*://*.litmoseu.com/**",
   });
   const activeTab = tabs[0];
+  if (!activeTab) {
+    const mainElement = document.querySelector("main");
+    mainElement.innerHTML = `
+    <p>Please, Open a window with litmos with a course opened like the next example:</p>
+    <img src="assets/example.png" class="rounded img-fluid">   
+    `;
+    return;
+  }
   const activeTabId = activeTab.id;
   try {
     if (!MOCK) {
+      list_sections.innerHTML = loadingSpinner();
       const courses = await chrome.scripting.executeScript({
         target: {
           tabId: activeTabId,
@@ -27,6 +45,7 @@ async function loadScript() {
         files: ["scripts/injected.js"],
       });
       state.sections = courses[0].result;
+      document.querySelector("#loading").remove();
       courses[0].result.forEach((url) => {
         const section = createListItem(url);
         list_sections.appendChild(section);
@@ -57,6 +76,7 @@ function createListItem(row) {
 
   const downloadIcon = document.createElement("input");
   downloadIcon.type = "checkbox";
+  downloadIcon.classList.add("form-check-input", "mx-2");
   downloadIcon.id = row.name.split(" ").join("");
   downloadIcon.setAttribute("value", row.name);
   downloadIcon.addEventListener("change", (evt) => {
@@ -84,23 +104,30 @@ function createListItem(row) {
 }
 
 const downloadButton = document.querySelector("#download");
+const progressBar = document.querySelector("#progress-bar");
 
 downloadButton.addEventListener("click", async () => {
   console.log(state);
   try {
     const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+    const total = state.toDownload.length;
+    const percentaje = 100 / total;
+    let progressStatus = 0;
     for (const section of state.toDownload) {
       console.log(section.name);
       const newDirectoryHandler = await handle.getDirectoryHandle(section.name.replace(":", ""), {
         create: true,
       });
+      // Cambio de color de fila al descargar
+      document.getElementById(`${section.name.split(" ").join("")}`).parentElement.parentElement.classList.add("list-group-item-success");
+
       for (const download of section.videos) {
         if (!download) {
           continue;
         }
         if (download.name) {
           if (download?.urls?.videoUrl) {
-            const newVideo = await newDirectoryHandler.getFileHandle(`${download.name}.mp4`, {
+            const newVideo = await newDirectoryHandler.getFileHandle(`${download.name.replace(":", "")}.mp4`, {
               create: true,
             });
             const writable = await newVideo.createWritable();
@@ -108,7 +135,7 @@ downloadButton.addEventListener("click", async () => {
             await res.body.pipeTo(writable);
           }
           if (download?.urls?.subtitleUrl) {
-            const newVideo = await newDirectoryHandler.getFileHandle(`${download.name}.srt`, {
+            const newVideo = await newDirectoryHandler.getFileHandle(`${download.name.replace(":", "")}.srt`, {
               create: true,
             });
             const writable = await newVideo.createWritable();
@@ -118,6 +145,8 @@ downloadButton.addEventListener("click", async () => {
           console.log(download.name + " descargado");
         }
       }
+      progressStatus = progressStatus + percentaje;
+      progressBar.style = `width: ${progressStatus}%`;
     }
   } catch (e) {
     console.error(e);
