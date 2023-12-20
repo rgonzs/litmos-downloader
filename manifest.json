@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Litmos Downloader",
+  "version": "1.0",
+  "description": "Download courses from litmos page",
+  "icons": {
+    "48": "icons/icon-48.png"
+  },
+  "permissions": ["activeTab", "tabs", "scripting", "unlimitedStorage", "storage"],
+  "action": {
+    "default_icon": "button/19-download.png",
+    "default_title": "Litmos Downloader"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": ["*://*.litmoseu.com/**"]
+}
